@@ -1,0 +1,10 @@
+Usage Page (0xffff)                      # 06 ff ff
+Usage (0x2)                              # 09 02
+Collection (Application)                 # a1 01
+  Usage (0x2)                              # 09 02
+  Logical Minimum (-128)                   # 15 80
+  Logical Maximum (127)                    # 25 7f
+  Report Count (64)                        # 95 40
+  Report Size (8)                          # 75 08
+  Feature (Data,Var,Abs)                   # b1 02
+End Collection                           # c0

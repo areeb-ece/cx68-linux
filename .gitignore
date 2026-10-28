@@ -1,0 +1,13 @@
+__pycache__/
+*.pyc
+
+# personal data: raw captures (include key presses) and config backups
+captures/
+backups/
+
+# capture tooling state: browser profile (cookies), downloads, vendor code
+tools/capture/profile/
+tools/capture/node_modules/
+tools/capture/bundles/
+tools/capture/vendor-driver/
+tools/capture/shim-db/

@@ -1,0 +1,25 @@
+# udev rules for the iCAN CX68 (USB 3151:502d) and the cx68 tools.
+#
+# Install (then unplug and replug the keyboard):
+#   sudo install -m 644 udev/70-cx68.rules /etc/udev/rules.d/
+#   sudo udevadm control --reload
+#
+# The file sorts before systemd's 70-uaccess.rules on purpose: rule 2 must remove the joystick
+# classification before uaccess hands joystick nodes to the logged-in user.
+
+# 1. Config channel (hidraw) for the logged-in user. Only needed where no broader hidraw rule exists.
+SUBSYSTEM=="hidraw", ATTRS{idVendor}=="3151", ATTRS{idProduct}=="502d", TAG+="uaccess"
+
+# 2. Phantom joystick: the keyboard's "System Control" interface (power/sleep keys) is classified
+#    as a joystick, so games, Steam and Wine can list a controller that does nothing. It stays a
+#    key device; it just stops being offered as a joystick.
+SUBSYSTEM=="input", ATTRS{idVendor}=="3151", ATTRS{idProduct}=="502d", ENV{ID_INPUT_JOYSTICK}=="1", ENV{ID_INPUT_JOYSTICK}=""
+
+# 3. uinput for the gamepad bridge (KDE Connect and Steam ship equivalent rules already).
+KERNEL=="uinput", SUBSYSTEM=="misc", TAG+="uaccess", OPTIONS+="static_node=uinput"
+
+# 4. OPTIONAL, off by default: lets the bridge read and grab this keyboard's own key events, for
+#    [suppress] mapped_keys (no double input) and `measure`'s native comparison.
+#    Trade-off: any program running as you could then read everything typed on this keyboard,
+#    which Wayland otherwise prevents. Uncomment only if you want those features.
+#SUBSYSTEM=="input", KERNEL=="event*", ATTRS{idVendor}=="3151", ATTRS{idProduct}=="502d", ENV{ID_INPUT_KEY}=="1", TAG+="uaccess"

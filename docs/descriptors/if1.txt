@@ -1,0 +1,84 @@
+Usage Page (0xc)                         # 05 0c
+Usage (0x1)                              # 09 01
+Collection (Application)                 # a1 01
+  Report ID (3)                            # 85 03
+  Usage Minimum (0x0)                      # 19 00
+  Usage Maximum (0x33c)                    # 2a 3c 03
+  Logical Minimum (0)                      # 15 00
+  Logical Maximum (828)                    # 26 3c 03
+  Report Count (1)                         # 95 01
+  Report Size (16)                         # 75 10
+  Input (Data,Arr,Abs)                     # 81 00
+End Collection                           # c0
+Usage Page (0x1)                         # 05 01
+Usage (0x80)                             # 09 80
+Collection (Application)                 # a1 01
+  Report ID (2)                            # 85 02
+  Logical Minimum (0)                      # 15 00
+  Logical Maximum (32767)                  # 26 ff 7f
+  Usage Minimum (0x0)                      # 19 00
+  Usage Maximum (0x7fff)                   # 2a ff 7f
+  Report Size (16)                         # 75 10
+  Report Count (1)                         # 95 01
+  Input (Data,Arr,Abs)                     # 81 00
+End Collection                           # c0
+Usage Page (0x1)                         # 05 01
+Usage (0x6)                              # 09 06
+Collection (Application)                 # a1 01
+  Report ID (1)                            # 85 01
+  Usage Page (0x7)                         # 05 07
+  Logical Minimum (0)                      # 15 00
+  Logical Maximum (1)                      # 25 01
+  Usage Minimum (0x0)                      # 19 00
+  Usage Maximum (0x77)                     # 29 77
+  Report Count (120)                       # 95 78
+  Report Size (1)                          # 75 01
+  Input (Data,Var,Abs)                     # 81 02
+End Collection                           # c0
+Usage Page (0x1)                         # 05 01
+Usage (0x2)                              # 09 02
+Collection (Application)                 # a1 01
+  Report ID (6)                            # 85 06
+  Usage (0x1)                              # 09 01
+  Collection (Physical)                    # a1 00
+    Usage Page (0x9)                         # 05 09
+    Logical Minimum (0)                      # 15 00
+    Logical Maximum (1)                      # 25 01
+    Usage Minimum (0x1)                      # 19 01
+    Usage Maximum (0x5)                      # 29 05
+    Report Size (1)                          # 75 01
+    Report Count (5)                         # 95 05
+    Input (Data,Var,Abs)                     # 81 02
+    Report Count (3)                         # 95 03
+    Input (Cnst,Arr,Abs)                     # 81 01
+    Usage Page (0x1)                         # 05 01
+    Logical Minimum (-32767)                 # 16 01 80
+    Logical Maximum (32767)                  # 26 ff 7f
+    Usage (0x30)                             # 09 30
+    Usage (0x31)                             # 09 31
+    Report Size (16)                         # 75 10
+    Report Count (2)                         # 95 02
+    Input (Data,Var,Rel)                     # 81 06
+    Logical Minimum (-127)                   # 15 81
+    Logical Maximum (127)                    # 25 7f
+    Usage (0x38)                             # 09 38
+    Report Size (8)                          # 75 08
+    Report Count (1)                         # 95 01
+    Input (Data,Var,Rel)                     # 81 06
+    Usage Page (0xc)                         # 05 0c
+    Usage (0x238)                            # 0a 38 02
+    Report Count (1)                         # 95 01
+    Input (Data,Var,Rel)                     # 81 06
+  End Collection                           # c0
+End Collection                           # c0
+Usage Page (0xffff)                      # 06 ff ff
+Usage (0x1)                              # 09 01
+Collection (Application)                 # a1 01
+  Report ID (5)                            # 85 05
+  Usage (0x1)                              # 09 01
+  Logical Minimum (0)                      # 15 00
+  Logical Maximum (255)                    # 26 ff 00
+  Report Size (8)                          # 75 08
+  Report Count (31)                        # 95 1f
+  Input (Data,Var,Abs)                     # 81 02
+End Collection                           # c0

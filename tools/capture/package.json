@@ -1,0 +1,11 @@
+{
+  "name": "cx68-capture",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "playwright": "1.49.1"
+  },
+  "devDependencies": {
+    "prettier": "^3.3.3"
+  }
+}

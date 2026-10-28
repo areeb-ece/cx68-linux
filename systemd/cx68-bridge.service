@@ -1,0 +1,14 @@
+[Unit]
+Description=CX68 analog keys as a virtual gamepad
+Documentation=file://%h/keyboard/docs/gamepad.md
+
+[Service]
+Type=simple
+WorkingDirectory=%h/keyboard
+ExecStart=/usr/bin/python3 -m cx68bridge run
+Restart=on-failure
+RestartSec=2
+# The bridge holds the keyboard's config channel, so cx68app cannot connect while it runs.
+
+[Install]
+WantedBy=default.target

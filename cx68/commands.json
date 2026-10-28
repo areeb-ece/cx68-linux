@@ -1,0 +1,283 @@
+{
+  "_doc": "Opcode table for the iCAN CX68 = CamelTech CT-M68, device id 2427, model ry5088_cx68bug_8k_002_dm. Effective FEA_CMD_* constants of its protocol class chain wGa -> Kka -> kba -> Uga -> YHe -> EG -> lG -> JC -> RC -> AC in iotdriver.qmk.top's bundle (regenerate with tools/capture/class_chain.py). Byte 0 of the 64-byte feature report (interface 2, report ID 0). kind: read = GET, write = changes config, volatile = runtime state only. Anything not listed here, or listed under deny, is never sent.",
+  "bundle": "https://iotdriver.qmk.top/static/js/main_68eaf5ce.js",
+  "class_chain": "wGa Kka kba Uga YHe EG lG JC RC AC",
+  "checksum": {
+    "_doc": "Bit7: b[7] = 0xFF - (sum(b[0..6]) & 0xFF). Bit8: b[8] = 0xFF - (sum(b[0..7]) & 0xFF). The helper zero-pads to 9 bytes before the checksum, then to 64. In this class chain commands use BIT7 (enum 0) except setLightSetting (0x07: Uga calls writeFeatureCmd(a, 1, 50), and b[7] carries blue), setSLEDParam (0x08) and setOledEffect (0x2B), which use BIT8 (enum 1, proto.driver.CheckSumType = {BIT7: 0, BIT8: 1, NONE: 2}). NONE is only used by the OLED upgrade (denied), so none_opcodes stays empty.",
+    "bit8_opcodes": [
+      "0x07",
+      "0x08",
+      "0x2B"
+    ],
+    "none_opcodes": []
+  },
+  "commands": {
+    "0x03": {
+      "name": "SET_REPORT_RATE",
+      "kind": "write",
+      "note": "[0x03, profile, rateCode]; RC maps only 1000/500/250/125 Hz; the page never calls it for the CX68 (8 kHz board) - open question"
+    },
+    "0x04": {
+      "name": "SET_PROFILE",
+      "kind": "write",
+      "note": "[0x04, profile]"
+    },
+    "0x05": {
+      "name": "SET_LEDONOFF",
+      "kind": "write"
+    },
+    "0x06": {
+      "name": "SET_DEBOUNCE",
+      "kind": "write",
+      "note": "[0x06, debounce]"
+    },
+    "0x07": {
+      "name": "SET_LEDPARAM",
+      "kind": "write",
+      "note": "[0x07, mode, MAXSPEED(4) - speed, brightness, option (low nibble colour: 8 rainbow, 7 rgb, 0..6 preset; high nibble direction), r, g, b] BIT8 (checksum in b[8]); white is sent as FA FF FA. From Uga.setLightSetting"
+    },
+    "0x08": {
+      "name": "SET_SIDE_LEDPARAM",
+      "kind": "write",
+      "note": "[0x08, mode, speed, brightness, option, r, g, b] BIT8, sent with 500 ms delay"
+    },
+    "0x09": {
+      "name": "SET_KBOPTION",
+      "kind": "write",
+      "note": "[0x09, profile, flags bitfield, b3, b4]"
+    },
+    "0x0A": {
+      "name": "SET_KEYMATRIX",
+      "kind": "write",
+      "note": "bulk: [0x0A, profile, 0xFF, page, len, last, ...] + 56 data bytes (4 bytes per key); single: [0x0A, profile, keyPos, ..., b[5]=1, b[6]=layer offset, b[8..11]=4-byte code]. In some other RY classes 0x0A is reset; this entry is only valid for this class chain"
+    },
+    "0x0B": {
+      "name": "SET_MACRO",
+      "kind": "write"
+    },
+    "0x0C": {
+      "name": "SET_USERPIC",
+      "kind": "write"
+    },
+    "0x0D": {
+      "name": "SET_AUDIO",
+      "kind": "write"
+    },
+    "0x0E": {
+      "name": "SET_WINDOWS_LOCK",
+      "kind": "write"
+    },
+    "0x10": {
+      "name": "SET_FN",
+      "kind": "write",
+      "note": "[0x10, os (0 win, 1 mac), fn layer, slot, 0, 0, 0, ck, 4-byte entry] BIT7. From Uga.setFnKeyConfigSimple"
+    },
+    "0x11": {
+      "name": "SET_SLEEPTIME",
+      "kind": "write"
+    },
+    "0x12": {
+      "name": "SET_USERGIF",
+      "kind": "write"
+    },
+    "0x13": {
+      "name": "SET_KEYMATRIX_SIMPLE",
+      "kind": "write"
+    },
+    "0x14": {
+      "name": "SET_USERPIC_SIMPLE",
+      "kind": "write"
+    },
+    "0x15": {
+      "name": "SET_FN_SIMPLE",
+      "kind": "write"
+    },
+    "0x16": {
+      "name": "SET_MACRO_SIMPLE",
+      "kind": "write"
+    },
+    "0x17": {
+      "name": "SET_AUTO_OS",
+      "kind": "write"
+    },
+    "0x18": {
+      "name": "SET_USERGIFSTART",
+      "kind": "write"
+    },
+    "0x1A": {
+      "name": "SET_MAGNETISM_MODE",
+      "kind": "write"
+    },
+    "0x1B": {
+      "name": "SET_TRAVEL_REPORT",
+      "kind": "volatile",
+      "note": "[0x1B, 1|0] BIT7; enables/disables travel notifications (interface 1, report 5, first byte 0x1B)"
+    },
+    "0x1D": {
+      "name": "SET_KEY_MAGNETISM_MODE",
+      "kind": "write",
+      "note": "[0x1D, mode (0 comfort,1 sensitive,2 gaming,3 custom), keyboardDisable, gamepadEnable]; the page sends 1D 03 00 00 on opening key settings"
+    },
+    "0x27": {
+      "name": "SET_OLED_LANGUAGE",
+      "kind": "write"
+    },
+    "0x28": {
+      "name": "SET_OLED_CLOCK",
+      "kind": "write"
+    },
+    "0x2A": {
+      "name": "SET_OLED_WEATHER",
+      "kind": "write"
+    },
+    "0x2B": {
+      "name": "SET_OLED_EFFECT",
+      "kind": "write"
+    },
+    "0x65": {
+      "name": "SET_MAGNETISM_BY_ARR",
+      "kind": "write",
+      "note": "[0x65, param, bulk(1)/single(0), page, last, ...]; BIT7; data 56 bytes per packet; values as for 0xE5"
+    },
+    "0x82": {
+      "name": "GET_BATTERY",
+      "kind": "read"
+    },
+    "0x83": {
+      "name": "GET_REPORT_RATE",
+      "kind": "read",
+      "note": "[0x83, profile]"
+    },
+    "0x84": {
+      "name": "GET_PROFILE",
+      "kind": "read",
+      "note": "[0x84]; reply b[1] = current profile"
+    },
+    "0x85": {
+      "name": "GET_LEDONOFF",
+      "kind": "read"
+    },
+    "0x86": {
+      "name": "GET_DEBOUNCE",
+      "kind": "read"
+    },
+    "0x87": {
+      "name": "GET_LEDPARAM",
+      "kind": "read"
+    },
+    "0x88": {
+      "name": "GET_SIDE_LEDPARAM",
+      "kind": "read"
+    },
+    "0x89": {
+      "name": "GET_KBOPTION",
+      "kind": "read",
+      "note": "[0x89, profile]; reply flags at b[2], options b[3], b[4]"
+    },
+    "0x8A": {
+      "name": "GET_KEYMATRIX",
+      "kind": "read",
+      "note": "[0x8A, profile, 0xFF, page 0..7, layer]; reply is raw 4-byte entries, no opcode echo"
+    },
+    "0x8B": {
+      "name": "GET_MACRO",
+      "kind": "read"
+    },
+    "0x8C": {
+      "name": "GET_USERPIC",
+      "kind": "read"
+    },
+    "0x8F": {
+      "name": "GET_REV",
+      "kind": "read",
+      "note": "reply: u32 LE device id at [1..4] (2427), firmware version (b[8]<<8)|b[7] (0x0400)"
+    },
+    "0x90": {
+      "name": "GET_FN",
+      "kind": "read"
+    },
+    "0x91": {
+      "name": "GET_SLEEPTIME",
+      "kind": "read"
+    },
+    "0x93": {
+      "name": "GET_KEYMATRIX_SIMPLE",
+      "kind": "read"
+    },
+    "0x94": {
+      "name": "GET_USERPIC_SIMPLE",
+      "kind": "read"
+    },
+    "0x95": {
+      "name": "GET_FN_SIMPLE",
+      "kind": "read"
+    },
+    "0x96": {
+      "name": "GET_MACRO_SIMPLE",
+      "kind": "read"
+    },
+    "0x97": {
+      "name": "GET_AUTO_OS",
+      "kind": "read"
+    },
+    "0x9C": {
+      "name": "GET_MAGNETISM_CAL",
+      "kind": "read",
+      "note": "static/rest raw values, b[1]=page"
+    },
+    "0x9D": {
+      "name": "GET_KEY_MAGNETISM_MODE",
+      "kind": "read",
+      "note": "[0x9D]; reply [0x9D, mode, keyboardDisable, gamepadEnable] - reads gamepad state without writing"
+    },
+    "0x9E": {
+      "name": "GET_MAGNETISM_CALMAX",
+      "kind": "read",
+      "note": "dynamic/max raw values, b[1]=page"
+    },
+    "0xAB": {
+      "name": "GET_OLED_EFFECT",
+      "kind": "read"
+    },
+    "0xAD": {
+      "name": "GET_OLED_VERSION",
+      "kind": "read"
+    },
+    "0xAE": {
+      "name": "GET_MLED_VERSION",
+      "kind": "read"
+    },
+    "0xE5": {
+      "name": "GET_MAGNETISM_BY_ARR",
+      "kind": "read",
+      "note": "[0xE5, param, bulk=1, page]; reply = raw values, no opcode echo. u16 LE per matrix slot, 32 per page, 4 pages = 128 slots, units 0.01 mm (firmware 0x0400). params: 0 actuation, 1 release ('lift'), 2 RT press, 3 RT release, 4 DKS start, 5 MT hold time, 6 bottom deadzone, 7 key mode byte (u8, 2 pages), 8 DKS flags, 9 snap/SOCD partner, 10 all-keys DKS flags, 252 switch type, 254 live press travel, 255 live dynamic value. Factory defaults: actuation 200, release 280, deadzone 30, RT 50/50"
+    }
+  },
+  "deny": {
+    "0x00": "SET_REV (purpose not documented). Also what setKeyMagnetismFast actually sends on this class chain: FEA_CMD_SET_MAGNETISM_FAST is undefined here, so byte 0 stays 0x00 - a vendor bug",
+    "0x01": "factory reset (FEA_CMD_SET_RESERT)",
+    "0x02": "SET_BATTERY_LP (wireless low-power; unused on this wired board) / factory reset in older RY classes",
+    "0x7F": "enter USB bootloader (7F 55 AA 55 AA)",
+    "0xF8": "enter RF bootloader (F8 55 AA 55 AA)",
+    "0xF7": "RF bootloader status (upgrade flow only)",
+    "0xBA": "firmware upgrade start/verify (BA C0 / BA C2)",
+    "0x1C": "write min-travel calibration (only inside an explicit, user-confirmed calibration flow)",
+    "0x1E": "write max-travel calibration (only inside an explicit, user-confirmed calibration flow)",
+    "0x30": "OLED enter bootloader",
+    "0x31": "OLED boot start",
+    "0xB0": "OLED bootloader status",
+    "0xB1": "OLED boot checksum",
+    "0x40": "MLED enter bootloader",
+    "0x41": "MLED boot start",
+    "0xC0": "MLED bootloader status",
+    "0xC1": "MLED boot checksum",
+    "0x32": "TFT flash data write",
+    "0xB2": "TFT flash data read (flash tooling)",
+    "0xAC": "flash chip erase (FEA_CMD_SET_FLASHCHIPERASSE)"
+  },
+  "deny_rules": [
+    "any opcode not listed in commands (unknown purpose)",
+    "any packet whose checksum does not match its opcode's checksum type (Bit7 by default; NONE only for none_opcodes)",
+    "WebHID output reports, and the helper's sendRawFeature/readRawFeature/cleanDev/upgradeOTAGATT"
+  ]
+}
