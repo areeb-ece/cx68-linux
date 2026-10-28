@@ -13,6 +13,7 @@ from .keyboard_view import KeyboardView
 from .advanced_tab import AdvancedTab
 from .gamepad_tab import GamepadTab
 from .lighting_tab import LightingTab
+from .macros_tab import MacrosTab
 from .remap_tab import RemapTab
 from .widgets import backup_note, card, guarded, muted
 from .keys_tab import KeysTab
@@ -220,8 +221,7 @@ class BackupTab(QWidget):
 
         def job(dev):
             import time as _t
-            for c in cmds:
-                dev.transact(*c)
+            config.execute(dev, cmds)
             _t.sleep(0.5)
             dev.wait_ready()
             return config.diff(backup, config.read_full_config(dev))
@@ -317,6 +317,7 @@ class MainWindow(QMainWindow):
         tabs.addTab(KeysTab(worker), "Keys")
         tabs.addTab(RemapTab(worker), "Remap")
         tabs.addTab(AdvancedTab(worker), "Advanced")
+        tabs.addTab(MacrosTab(worker), "Macros")
         tabs.addTab(LightingTab(worker), "Lighting")
         tabs.addTab(GamepadTab(), "Gamepad")
         tabs.addTab(self.device, "Device")

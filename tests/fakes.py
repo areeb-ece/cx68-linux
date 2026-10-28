@@ -33,6 +33,7 @@ class FakeFirmware:
         self.busy_until = 0.0
         self.last_write = 0.0
         self.dropped = []
+        self.macros = {}               # macro index -> 256-byte buffer (0B writes 56-byte pages)
 
     @staticmethod
     def _e5(param, page):
@@ -55,6 +56,9 @@ class FakeFirmware:
             return self.replies[req]
         if req[0] == 0xE5 and req[1] == 254:   # live travel: all keys up
             return bytes(64)
+        if req[0] == 0x8B:                    # macro page: 64 bytes of the 256-byte buffer
+            buf = self.macros.get(req[1], bytes(256))
+            return bytes(buf[req[2] * 64:req[2] * 64 + 64])
         if req[0] in (0x8A, 0x90, 0x8C, 0xE5, 0x9C, 0x9E):
             return bytes(64)                  # data reply: empty
         return req                            # opcode-echo style reply with no state
@@ -69,8 +73,13 @@ class FakeFirmware:
             if too_soon:
                 self.dropped.append(req)
                 return
-        if req[0] == 0x65 and req[4] == 1:
+        if req[0] in (0x65, 0x0B) and req[4] == 1:
             self.busy_until = now + self.commit_busy
+        if req[0] == 0x0B:    # macro page: [0B, macro, page, 56, last, 0, 0, ck] + 56 B
+            buf = bytearray(self.macros.get(req[1], bytes(256)))
+            chunk = req[8:64][:max(0, 256 - req[2] * 56)]
+            buf[req[2] * 56:req[2] * 56 + len(chunk)] = chunk
+            self.macros[req[1]] = bytes(buf)
         if req[0] == 0x65 and req[2] == 0:   # per-key value: later per-key E5 reads return it
             self.replies[self._enc(bytes([0xE5, req[1], 0, req[3]]))] = req[8:64].ljust(64, b"\0")
             self.pending, self.sent_at, self.torn_done = req, time.perf_counter(), False

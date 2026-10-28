@@ -53,11 +53,16 @@ def backup_note(made):
     return f"\nbackup first: {made.name}" if made else ""
 
 
+def find_data(combo, value) -> int:
+    """QComboBox.findData, which never matches bytes item data."""
+    return next((i for i in range(combo.count()) if combo.itemData(i) == value), -1)
+
+
 class KeyPicker(QWidget):
     """Pick an ordinary key action: optional modifier + key, or Disabled."""
     changed = Signal()
 
-    def __init__(self, allow_disabled=True):
+    def __init__(self, allow_disabled=True, compact=False):
         super().__init__()
         self.allow_disabled = allow_disabled
         self.mod = QComboBox()
@@ -67,7 +72,7 @@ class KeyPicker(QWidget):
         self.group = QComboBox()
         if allow_disabled:
             self.group.addItem("Disabled", None)
-        for g in keymap.GROUPS:
+        for g in (*keymap.GROUPS, *keymap.SPECIAL):
             self.group.addItem(g, g)
         self.key = QComboBox()
         self.group.currentIndexChanged.connect(self._fill)
@@ -76,32 +81,45 @@ class KeyPicker(QWidget):
         lay = QGridLayout(self)
         lay.setContentsMargins(0, 0, 0, 0)
         lay.setSpacing(8)
-        lay.addWidget(self.mod, 0, 0)
-        lay.addWidget(self.group, 0, 1)
-        lay.addWidget(self.key, 1, 0, 1, 2)
+        if compact:                          # one row, no modifier
+            self.mod.hide()
+            lay.addWidget(self.group, 0, 0)
+            lay.addWidget(self.key, 0, 1)
+        else:
+            lay.addWidget(self.mod, 0, 0)
+            lay.addWidget(self.group, 0, 1)
+            lay.addWidget(self.key, 1, 0, 1, 2)
         self._fill()
 
     def _fill(self, *_):
         g = self.group.currentData()
         self.key.blockSignals(True)
         self.key.clear()
-        for usage, name in (keymap.GROUPS[g].items() if g else ()):
-            self.key.addItem(name, usage)
+        items = keymap.GROUPS.get(g) or keymap.SPECIAL.get(g) or {}
+        for data, name in items.items():
+            self.key.addItem(name, data)
         self.key.blockSignals(False)
         self.key.setEnabled(g is not None)
-        self.mod.setEnabled(g is not None)
+        self.mod.setEnabled(g in keymap.GROUPS)
         self.changed.emit()
 
     def entry(self) -> bytes:
-        usage = self.key.currentData()
-        if self.group.currentData() is None or usage is None:
+        data = self.key.currentData()
+        if self.group.currentData() is None or data is None:
             return keymap.DISABLED
-        return keymap.entry(usage, self.mod.currentData())
+        if isinstance(data, bytes):                    # media / system / mouse action
+            return data
+        return keymap.entry(data, self.mod.currentData())
 
     def set_entry(self, e: bytes):
-        """Show an entry; returns False if it isn't an ordinary key (left unchanged)."""
+        """Show an entry; returns False if the picker can't show it (left unchanged)."""
         if e == keymap.DISABLED and self.allow_disabled:
             self.group.setCurrentIndex(0)
+            return True
+        special = next((g for g, items in keymap.SPECIAL.items() if bytes(e) in items), None)
+        if special:
+            self.group.setCurrentIndex(self.group.findData(special))
+            self.key.setCurrentIndex(find_data(self.key, bytes(e)))
             return True
         if not keymap.editable(e) or e[3]:
             return False

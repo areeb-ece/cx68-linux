@@ -77,8 +77,7 @@ def cmd_restore(args):
             if not args.yes and input("send these writes? [y/N] ").strip().lower() != "y":
                 print("aborted, nothing written")
                 return
-            for c in cmds:
-                dev.transact(*c)
+            config.execute(dev, cmds)
             time.sleep(0.5)      # committing writes keeps the firmware busy for a while
             dev.wait_ready()
         after = config.read_full_config(dev)

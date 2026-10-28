@@ -18,6 +18,9 @@ PROFILES = 4
 LAYERS = 4             # per profile (model "layer: 16" = 4 profiles x 4 layers)
 FN_OS = {"win": 0, "mac": 1}
 USERPIC_PAGES = 6
+MACROS = 50            # macro slots, shared by all profiles (the page allows 50 on this model)
+MACRO_BYTES = 256      # one macro buffer: u16 repeat count + events
+MACRO_READ_PAGES = 4   # 8B replies are 64 data bytes
 
 
 class Param(IntEnum):
@@ -91,6 +94,12 @@ def get_magnetism_key(param, slot):
     """Per-key read (E5 with bulk flag 0) for the per-key-only params: DKS flags/start, MT time,
     snap partner. Reply data starts at byte 8 like the page reads."""
     return _cmd(0xE5, int(param), 0, slot, reply="data")
+
+
+def get_macro_page(index, page):
+    """8B [8B, macro, page]: 64 data bytes of the macro's 256-byte buffer ($Y/Uga.getMacro)."""
+    assert 0 <= index < MACROS and 0 <= page < MACRO_READ_PAGES
+    return _cmd(0x8B, index, page, reply="data")
 
 
 def get_userpic_page(pic, page):
@@ -188,6 +197,20 @@ def set_fn_key(os_name, fn_layer, slot, entry: bytes):
     """0x10 [10, os, fn layer, slot, 0, 0, 0, ck, e0..e3] (Uga.setFnKeyConfigSimple)."""
     assert len(entry) == 4
     return Cmd(bytes([0x10, FN_OS[os_name], fn_layer, slot, 0, 0, 0, 0]) + bytes(entry), BIT7, None)
+
+
+def set_macro(index, buf: bytes):
+    """0B pages [0B, macro, page, 56, last, 0, 0, ck] + 56 B (Uga._setMacro).
+
+    Like the vendor, only as many pages as the buffer has non-empty 56-byte slices are sent
+    (so an all-zero buffer sends nothing); `last` on the final page commits.
+    """
+    assert 0 <= index < MACROS and len(buf) <= MACRO_BYTES
+    buf = bytes(buf).ljust(MACRO_BYTES, b"\0")
+    used = sum(1 for i in range(5) if any(buf[i * WRITE_CHUNK:(i + 1) * WRITE_CHUNK]))
+    return [Cmd(bytes([0x0B, index, page, WRITE_CHUNK, int(page == used - 1), 0, 0, 0])
+                + buf[page * WRITE_CHUNK:(page + 1) * WRITE_CHUNK].ljust(WRITE_CHUNK, b"\0"), BIT7, None)
+            for page in range(used)]
 
 
 def set_led(mode, speed_raw, brightness, option, r, g, b):

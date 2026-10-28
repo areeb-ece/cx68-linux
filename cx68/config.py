@@ -8,6 +8,7 @@ import json
 import time
 from pathlib import Path
 
+from . import macros
 from . import protocol as P
 from .policy import encode
 
@@ -48,9 +49,16 @@ def read_full_config(dev, progress=None) -> dict:
         raw[_key(cmd)] = dev.transact(*cmd).hex()
         if progress:
             progress(i + 1, len(plan))
-    # Per-key-only values (snap partner, mod-tap time) for the keys that use those modes.
+    # Per-key-only values (snap partner, mod-tap time, DKS) for the keys that use those modes.
     for prm, slot in per_key_reads(raw):
         raw[_key(P.get_magnetism_key(prm, slot))] = dev.transact(*P.get_magnetism_key(prm, slot)).hex()
+    # Macros: every slot, page by page until the page that holds the end marker (as the page reads them).
+    for index in range(P.MACROS):
+        for page in range(P.MACRO_READ_PAGES):
+            reply = dev.transact(*P.get_macro_page(index, page))
+            raw[_key(P.get_macro_page(index, page))] = reply.hex()
+            if macros.has_end(reply):
+                break
     cfg = {
         "schema": SCHEMA,
         "created": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
@@ -61,13 +69,30 @@ def read_full_config(dev, progress=None) -> dict:
     return cfg
 
 
-PER_KEY = {"snap": P.Param.SNAP_PARTNER, "mt": P.Param.MT_HOLD_TIME}
+PER_KEY = {"snap": (P.Param.SNAP_PARTNER,), "mt": (P.Param.MT_HOLD_TIME,),
+           "dks": (P.Param.DKS_START, P.Param.DKS_FLAGS)}
+# bytes of each per-key value, and the order the page writes them in (setMultiMagnetismModes callers)
+PER_KEY_SIZE = {P.Param.DKS_START: 2, P.Param.DKS_FLAGS: 4, P.Param.MT_HOLD_TIME: 1, P.Param.SNAP_PARTNER: 1}
+PER_KEY_ORDER = (P.Param.DKS_START, P.Param.DKS_FLAGS, P.Param.MT_HOLD_TIME, P.Param.SNAP_PARTNER)
 
 
 def per_key_reads(raw: dict) -> list:
     """(param, slot) of the per-key values a backup needs, from the mode array in `raw`."""
     modes = P.u8_slots([bytes.fromhex(raw[_key(P.get_magnetism_page(P.Param.KEY_MODE, pg))]) for pg in range(P.U8_PAGES)])
-    return [(PER_KEY[opt], s) for s, b in enumerate(modes) if (opt := P.KEY_OPTIONS.get(b & 0x0F)) in PER_KEY]
+    return [(prm, s) for s, b in enumerate(modes) if (opt := P.KEY_OPTIONS.get(b & 0x0F)) in PER_KEY
+            for prm in PER_KEY[opt]]
+
+
+def macro_buffers(cfg) -> dict:
+    """{macro index: 256-byte buffer} for the macros stored in a backup (older backups have none)."""
+    out = {}
+    for index in range(P.MACROS):
+        pages = [cfg["raw"].get(_key(P.get_macro_page(index, pg))) for pg in range(P.MACRO_READ_PAGES)]
+        if pages[0] is None:
+            continue
+        data = b"".join(bytes.fromhex(h) for h in pages if h is not None)
+        out[index] = data.ljust(P.MACRO_BYTES, b"\0")[:P.MACRO_BYTES]
+    return out
 
 
 def _get(cfg, cmd) -> bytes:
@@ -109,6 +134,8 @@ def decode(cfg) -> dict:
             for s in used
         },
         "keymaps": keymaps,
+        "macros": {str(i + 1): m.summary() for i, buf in macro_buffers(cfg).items()
+                   if not (m := macros.decode(buf)).empty},
     }
 
 
@@ -140,8 +167,14 @@ def request_packets() -> list[bytes]:
 def diff(old: dict, new: dict) -> list[str]:
     """Human-readable differences between two backups (raw replies), ignoring battery level."""
     out = []
+    dec = macros.decode
+    old_m, new_m = macro_buffers(old), macro_buffers(new)
+    for i in sorted(set(old_m) & set(new_m)):       # bytes after a macro's end marker don't matter
+        a, b = dec(old_m[i]), dec(new_m[i])
+        if (a.repeat, a.events) != (b.repeat, b.events):
+            out.append(f"macro {i + 1}: old {a.summary()}  new {b.summary()}")
     for key in sorted(set(old["raw"]) | set(new["raw"])):
-        if key.startswith("82"):
+        if key.startswith(("82", "8b")):
             continue
         a, b = old["raw"].get(key), new["raw"].get(key)
         if a == b:
@@ -157,8 +190,8 @@ def diff(old: dict, new: dict) -> list[str]:
 
 
 RESTORABLE_U16 = (P.Param.ACTUATION, P.Param.RELEASE, P.Param.RT_PRESS, P.Param.RT_RELEASE, P.Param.DEADZONE)
-# the only write opcodes a restore may use: 65/1D verified by replay tests, 0A/10/07 from the vendor source
-RESTORE_WRITES = (0x0A, 0x10, 0x07, 0x65, 0x1D)
+# the only write opcodes a restore may use: 65/1D verified by replay tests, 0A/10/07/0B from the vendor source
+RESTORE_WRITES = (0x0A, 0x10, 0x07, 0x0B, 0x65, 0x1D)
 
 
 def _param_raw(cfg, param) -> bytes:
@@ -168,13 +201,22 @@ def _param_raw(cfg, param) -> bytes:
 
 def plan_restore(backup: dict, current: dict) -> list[P.Cmd]:
     """Write commands that bring `current` back to `backup` for what restore covers, all for the
-    active profile: keymap layers 0-3 (0A), Fn layers (10), lighting (07), per-key HE settings,
-    modes and per-key values (65, commit on the last packet), and the trigger/gamepad mode (1D).
+    active profile: macros (0B, before the keys that use them, like the page), keymap layers 0-3
+    (0A), Fn layers (10), lighting (07), per-key HE settings, modes and per-key values (65,
+    commit on the last packet), and the trigger/gamepad mode (1D). Empty macro slots aren't
+    written (the page never writes an empty macro; no key uses them).
     Raises if the active profile differs (E5 data and edits are per active profile)."""
     profile = _get(backup, P.get_profile())[1]
     if profile != _get(current, P.get_profile())[1]:
         raise ValueError("active profile differs from the backup's; switch profiles first")
     cmds = []
+    dec = macros.decode
+    have_m = macro_buffers(current)
+    for index, buf in sorted(macro_buffers(backup).items()):
+        want = dec(buf)
+        have = dec(have_m.get(index, bytes(P.MACRO_BYTES)))
+        if not want.empty and (want.repeat, want.events) != (have.repeat, have.events):
+            cmds += P.set_macro(index, buf)
     for layer in range(P.LAYERS):
         want, have = (P.keymap_entries([_get(c, P.get_keymap_page(profile, layer, pg)) for pg in range(P.KEYMAP_PAGES)])
                       for c in (backup, current))
@@ -188,12 +230,13 @@ def plan_restore(backup: dict, current: dict) -> list[P.Cmd]:
         cmds.append(P.set_led(*want[1:8]))
     changed = [prm for prm in (*RESTORABLE_U16, P.Param.KEY_MODE) if _param_raw(backup, prm) != _param_raw(current, prm)]
     per_key = []
-    for key, value in sorted(backup["raw"].items()):
+    for key, value in backup["raw"].items():
         msg = bytes.fromhex(key.replace(" ", ""))
-        if msg[0] == 0xE5 and len(msg) == 4 and msg[2] == 0 and current["raw"].get(key) != value:
-            n = 1 if msg[1] in (P.Param.SNAP_PARTNER, P.Param.MT_HOLD_TIME) else None
-            if n:
+        if msg[0] == 0xE5 and len(msg) == 4 and msg[2] == 0 and msg[1] in PER_KEY_SIZE:
+            n = PER_KEY_SIZE[msg[1]]
+            if (current["raw"].get(key) or "")[:2 * n] != value[:2 * n]:
                 per_key.append(P.set_magnetism_key(msg[1], msg[3], bytes.fromhex(value)[:n], last=False))
+    per_key.sort(key=lambda c: (PER_KEY_ORDER.index(c.msg[1]), c.msg[3]))
     for i, prm in enumerate(changed):
         cmds += P.set_magnetism_array(prm, _param_raw(backup, prm), last=not per_key and i == len(changed) - 1)
     if per_key:
@@ -205,19 +248,32 @@ def plan_restore(backup: dict, current: dict) -> list[P.Cmd]:
     return cmds
 
 
+def execute(dev, cmds):
+    """Send a restore plan, waiting out the firmware's save after every packet that stores
+    (single keys) or commits (the last page of a 65 or 0B batch)."""
+    for c in cmds:
+        dev.transact(*c)
+        if c.msg[0] in (0x0A, 0x10) or (c.msg[0] in (0x65, 0x0B) and c.msg[4] == 1):
+            dev.wait_ready()
+    dev.wait_ready()
+
+
 def describe_restore(cmds) -> list[str]:
     from . import keymap, lighting
     out = []
     for c in cmds:
         op = c.msg[0]
-        if op == 0x0A:
+        if op == 0x0B:
+            out.append(f"0B macro {c.msg[1] + 1} page {c.msg[2]}{' (commit)' if c.msg[4] else ''}")
+        elif op == 0x0A:
             out.append(f"0A key slot {c.msg[2]} layer {c.msg[6]} → {keymap.describe(c.msg[8:12])}")
         elif op == 0x10:
             out.append(f"10 Fn key slot {c.msg[3]} ({'win' if c.msg[1] == 0 else 'mac'}) → {keymap.describe(c.msg[8:12])}")
         elif op == 0x07:
             out.append(f"07 lighting → {lighting.parse(c.msg).describe()}")
         elif op == 0x65 and c.msg[2] == 0:
-            out.append(f"65 {P.Param(c.msg[1]).name} slot {c.msg[3]} = {c.msg[8]}{' (commit)' if c.msg[4] else ''}")
+            out.append(f"65 {P.Param(c.msg[1]).name} slot {c.msg[3]} = {c.msg[8:].hex(' ')}"
+                       f"{' (commit)' if c.msg[4] else ''}")
         elif op == 0x65:
             out.append(f"65 param {P.Param(c.msg[1]).name} page {c.msg[3]}{' (commit)' if c.msg[4] else ''}")
         else:

@@ -50,8 +50,8 @@ class RemapTab(QWidget):
         sl.addWidget(self.summary)
         sl.addWidget(self.reset_all)
         sl.addWidget(muted("Remapped keys have a blue rim and show their new action. Writes go to the active "
-                           "profile and are read back to verify. Ordinary keys with at most one modifier can be "
-                           "set here; macros and media keys are kept as they are."))
+                           "profile and are read back to verify. Keys (with at most one modifier), media, system "
+                           "and mouse buttons can be set here; macros are put on keys in the Macros tab."))
         side.setFixedWidth(360)
 
         top = QHBoxLayout()
@@ -110,7 +110,7 @@ class RemapTab(QWidget):
             labels = {k.slot: keymap.describe(entries[k.slot]) if any(entries[k.slot]) else "—"
                       for k in self.view.keys if k.slot is not None}
         self.view.set_annotations(labels, {s: accent for s in changed})
-        self.summary.setText(f"{len(changed)} key{'s' if len(changed) != 1 else ''} differ from factory on this layer.")
+        self.summary.setText(f"{len(changed)} key{'s differ' if len(changed) != 1 else ' differs'} from factory on this layer.")
         self._show_key()
 
     def _slot(self):

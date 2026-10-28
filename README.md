@@ -8,8 +8,8 @@ live analog HUD and an analog gamepad bridge for racing games.
 |---|---|
 | 1. Hardware discovery | done: [`docs/hardware.md`](docs/hardware.md) |
 | 2. Protocol capture | done: [`docs/protocol.md`](docs/protocol.md) |
-| 3. Protocol library (`cx68/`) | reads, live travel, verified writes for travel, keymap, Fn, lighting, profile, advanced modes; backup/diff/restore of all of them |
-| 4. Desktop app + HUD (`cx68app/`, PySide6) | live view, per-key travel, remap (base + Fn), snap tap / toggle / mod-tap, lighting, profiles, backup/restore, gamepad control |
+| 3. Protocol library (`cx68/`) | reads, live travel, verified writes for travel, keymap (incl. media / system / mouse keys), Fn, lighting, profile, advanced modes (snap tap, toggle, mod-tap, DKS), macros; backup/diff/restore of all of them |
+| 4. Desktop app + HUD (`cx68app/`, PySide6) | live view, per-key travel, remap (base + Fn), snap tap / toggle / mod-tap / DKS, macros (record or build), lighting, profiles, backup/restore, gamepad control |
 | 5. Gamepad bridge (`cx68bridge/`) | uinput pad (Xbox 360 or generic), curves/deadzones/calibration, program allowlist: [`docs/gamepad.md`](docs/gamepad.md) |
 
 ## Safety
@@ -101,7 +101,9 @@ node tools/capture/test-policy.mjs
 
 `tests/test_replay.py` regenerates every request the vendor page sent (captured, and
 cross-checked against usbmon) from our builders, byte for byte, and decodes the captured
-replies.
+replies. The keymap, lighting, profile, advanced-mode, DKS and macro writers are built from the
+vendor page's source and tested against a fake keyboard (`tests/fakes.py`) that models those
+commands; their first run on the real board is still to come.
 
 ## Re-capturing after a firmware update
 

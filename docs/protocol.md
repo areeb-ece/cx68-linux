@@ -258,10 +258,25 @@ The tests are in `tests/test_writers.py`.
 | Lighting (`setLightSetting`) | `07 mode 4-speed brightness option r g b ck` with **Bit8** (b[7] is blue). White is sent as `FA FF FA` | `87` b[1..7] |
 | Profile (`setCurrentProfile`) | `04 profile` (Bit7) | `84` |
 | Per-key value (`setMultiMagnetismModes`) | `65 param 00 slot last 00 00 ck data`: MT hold time 1 byte (×10 ms, 1–100), snap partner 1 byte (slot), DKS flags 4 bytes, DKS start u16le | `E5 param 00 slot`, value at reply byte 0 |
+| Macro (`_setMacro`, `$Y.setMacro`) | `0B macro page 38 last 00 00 ck` + 56 bytes (Bit7), one page per non-empty 56-byte slice of the 256-byte buffer; `last` commits | `8B macro page` → 64 data bytes, until a page holds `00 00 00 00` (max 4) |
 
 Key entries are `[0, modifier, key, key2]`. The modifier is a modifier's own HID usage
 (Ctrl E0, Shift E1, Alt E2, Win E3), so an entry can hold only one modifier. All zeros means
-disabled. Fn is `0A 01 00 00`, and macros are `09 type index 00`.
+disabled. Fn is `0A 01 00 00`. From the page's tables (`CB`, `CY`):
+
+- media / consumer keys `03 00 lo hi` (consumer usage, little-endian: volume up `03 00 E9 00`,
+  calculator `03 00 92 01`)
+- system power / sleep / wake `02 81 00 00`, `02 82 00 00`, `02 83 00 00`
+- mouse buttons `01 00 F0..F4 00` (left, right, middle, back, forward)
+- macros `09 mode index 00`: mode 0 plays the macro its repeat count of times, 1 toggles it,
+  2 repeats it while the key is held. 50 macro slots (indexes 0–49) are shared by all profiles.
+
+Macro buffer (256 bytes, `$Y.setMacro` / `buffToMacroEvents`): u16le repeat count, then
+events. A key event is `[usage, flags]` (a mouse button uses its `F0..F4` code): flags bit 7 is
+down, and the low 7 bits are the delay after the event in ms when it is 1–127. Otherwise a
+u16le delay follows (0 if none). A mouse move is `[F9, delay, dx, dy]`. Four zero bytes end
+the macro. `cx68/macros.py` mirrors the vendor encoder byte for byte, and the page refuses
+macros whose encoding reaches 248 bytes.
 
 The mode byte (param 7) is `option | 0x80 if rapid trigger`. The options are normal 0, DKS 2,
 mod-tap 3, toggle (hold variant) 4, toggle (dots variant) 5, gamepad key 6 and snap 7. An
@@ -270,9 +285,17 @@ advanced key's actions are stored in layers 0–3 of the profile at the key's ow
 - mod-tap: tap in layer 0, hold in layer 1; layers 2–3 are cleared
 - toggle: layer 0; layers 1–3 are cleared
 - snap: no layers
+- DKS: up to four actions in layers 0–3. The per-key "DKS flags" value is one byte per
+  action, with a 2-bit code for each of four stages of the stroke: bits 0–1 pressing past the
+  start depth, 2–3 bottoming out, 4–5 lifting off the bottom, 6–7 rising back past the start
+  depth. Codes (from the DKS editor's row component): 0 nothing, 1 tap, 2 press here and release
+  at the next stage, 3 press here and stay held through the next stage (which is then 2 or 3).
+  The last stage can only tap. The "DKS start" value is the start depth in 0.1 mm units
+  (0.5–2.5 mm, default 0.7 mm).
 
-The page writes in this order: layer entries, then the mode array, then the per-key values
-(MT time before the snap partner). The commit flag goes on the very last packet.
+The page writes in this order: macros, then layer entries, then the mode array, then the
+per-key values (DKS start, DKS flags, MT time, snap partner). The commit flag goes on the very
+last packet.
 
 Not used:
 
@@ -350,7 +373,7 @@ Only the `qmk.top` origins may call the shim (any other origin gets 403).
 | Shim log vs usbmon capture (`crosscheck.py`, session 04) | **696/696 events identical** |
 | Blocked packets on the wire | none (wire carried only `82 84 85 87 89 8A 8F 90 E5`) |
 | WebHID vs hidraw for `8F` | identical request and reply |
-| Policy tests | 22 Python + 21 JS, all pass (`test_shim.py`, `test-policy.mjs`) |
+| Policy tests | 23 Python + 21 JS, all pass (`test_shim.py`, `test-policy.mjs`) |
 | Writes sent to the keyboard | `1B 01/00` (approved, volatile); approved session 09 (`1D`, `65` by the vendor page); `65` RT restore by the library. The keyboard matches the 2026-10-27 backup exactly afterwards |
 | Write replay | all 30 vendor write packets rebuilt byte for byte by `set_magnetism_array` / `set_key_mode` |
 
@@ -365,8 +388,8 @@ Only the `qmk.top` origins may call the shim (any other origin gets 403).
 2. **Report rate.** The page never calls `83`/`03` for this board, and the class's encoder
    only knows 125–1000 Hz. The 8 kHz setting may live in the keyboard-options block.
 3. ~~RT units / RT bit~~: resolved, 0.01 mm and bit 7 (write session 09). The other
-   mode-byte options are now taken from this class's source (section 6). The meaning of the DKS
-   flag bits (which stroke stages fire each action) is still open, so DKS stays read-only.
+   mode-byte options are now taken from this class's source (section 6). ~~DKS flag bits~~:
+   decoded from the page's DKS editor (section 6).
 5. **Session 10 capture** would confirm the source-derived writes above byte for byte.
 4. **Gamepad bit** support on this firmware (Phase 5).
 

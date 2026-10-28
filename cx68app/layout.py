@@ -10,20 +10,7 @@ from pathlib import Path
 
 LAYOUT_FILE = Path(__file__).resolve().parents[1] / "cx68" / "data" / "layout_cx68.json"
 
-# HID usage -> Linux input keycode (subset of the kernel's hid_keyboard[] table, covering
-# every key on the CX68). Qt reports nativeScanCode() = Linux keycode + 8 on Wayland/X11.
-HID_TO_LINUX = {
-    **dict(zip(range(0x04, 0x1E), (30, 48, 46, 32, 18, 33, 34, 35, 23, 36, 37, 38, 50, 49, 24, 25,
-                                     16, 19, 31, 20, 22, 47, 17, 45, 21, 44))),
-    **dict(zip(range(0x1E, 0x28), range(2, 12))),
-    0x28: 28, 0x29: 1, 0x2A: 14, 0x2B: 15, 0x2C: 57, 0x2D: 12, 0x2E: 13, 0x2F: 26, 0x30: 27,
-    0x31: 43, 0x33: 39, 0x34: 40, 0x35: 41, 0x36: 51, 0x37: 52, 0x38: 53, 0x39: 58,
-    **dict(zip(range(0x3A, 0x46), (59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 87, 88))),
-    0x49: 110, 0x4A: 102, 0x4B: 104, 0x4C: 111, 0x4D: 107, 0x4E: 109,
-    0x4F: 106, 0x50: 105, 0x51: 108, 0x52: 103,
-    0xE0: 29, 0xE1: 42, 0xE2: 56, 0xE3: 125, 0xE4: 97, 0xE5: 54, 0xE6: 100, 0xE7: 126,
-}
-LINUX_TO_HID = {v: k for k, v in HID_TO_LINUX.items()}
+from cx68.keymap import HID_TO_LINUX, LINUX_TO_HID  # noqa: F401  (used by the HUD and the bridge)
 
 
 @dataclass
