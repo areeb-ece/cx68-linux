@@ -1,7 +1,7 @@
 # Analog gamepad bridge (Phase 5)
 
 `cx68bridge` reads every key's travel (the same read-only polling as the live view, about
-850 frames/s) and drives a virtual gamepad through `/dev/uinput`. By default W/S are
+900–950 frames/s) and drives a virtual gamepad through `/dev/uinput`. By default W/S are
 throttle/brake on the triggers and A/D steer on the left stick, all fully analog.
 
 ## Native gamepad mode vs uinput
